@@ -56,7 +56,7 @@ const Sidebar = ({ children }) => {
       </div>
 
       {/* Phần nội dung chính (Main Content) bên phải */}
-      <main className="h-full flex-1 overflow-y-auto py-2 pr-2">
+      <main className="h-full flex-1 overflow-y-auto py-2 pr-2 pb-[100px]">
         <div className="bg-neutral-900 rounded-lg h-full w-full overflow-hidden overflow-y-auto">
             {children}
         </div>

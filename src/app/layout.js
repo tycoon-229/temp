@@ -2,6 +2,8 @@ import { Figtree } from "next/font/google";
 import "./globals.css";
 import Sidebar from "@/components/Sidebar";
 import AuthModal from "@/components/AuthModal";
+import Player from "@/components/Player";
+import SupabaseProvider from "@/providers/SupabaseProvider";
 import { ModalProvider } from "@/context/ModalContext";
 
 const font = Figtree({ subsets: ["latin"] });
@@ -15,12 +17,15 @@ export default function RootLayout({ children }) {
   return (
     <html lang="en">
       <body className={font.className}>
-        <ModalProvider>
-          <Sidebar>
-            {children}
-          </Sidebar>
-          <AuthModal />
-        </ModalProvider>
+        <SupabaseProvider>
+          <ModalProvider>
+            <Sidebar>
+              {children}
+            </Sidebar>
+            <Player />
+            <AuthModal />
+          </ModalProvider>
+        </SupabaseProvider>
       </body>
     </html>
   );

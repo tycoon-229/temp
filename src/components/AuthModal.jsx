@@ -10,43 +10,25 @@ const AuthModal = () => {
   
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState(""); 
-  
+  // Thêm state cho Admin Code
   const [adminCode, setAdminCode] = useState(""); 
+  
   const [variant, setVariant] = useState("login"); 
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState(null);
 
+  // Mã bí mật để tạo tài khoản Admin
   const SECRET_ADMIN_CODE = "admin123";
 
-  // Biến kiểm tra xem mật khẩu có khớp không (Chỉ kiểm tra khi đã bắt đầu nhập xác nhận)
-  const isPasswordMismatch = confirmPassword.length > 0 && password !== confirmPassword;
-
   useEffect(() => {
-    const checkSession = async () => {
-      if (isOpen) {
-        const { data: { session } } = await supabase.auth.getSession();
-        
-        if (session) {
-          setMessage({ type: 'error', text: 'Bạn đang đăng nhập rồi! Vui lòng đăng xuất trước.' });
-          setTimeout(() => {
-             closeModal();
-             window.location.reload(); 
-          }, 1500);
-          return;
-        }
-
-        setVariant(view);
-        setEmail("");
-        setPassword("");
-        setConfirmPassword(""); 
-        setAdminCode("");
-        setMessage(null);
-      }
-    };
-
-    checkSession();
-  }, [isOpen, view, closeModal]);
+    if (isOpen) {
+      setVariant(view);
+      setEmail("");
+      setPassword("");
+      setAdminCode(""); // Reset mã code
+      setMessage(null);
+    }
+  }, [isOpen, view]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -57,30 +39,27 @@ const AuthModal = () => {
       if (variant === 'register') {
         // --- LOGIC ĐĂNG KÝ ---
         
-        if (password !== confirmPassword) {
-            setMessage({ type: 'error', text: 'Mật khẩu xác nhận không khớp!' });
-            setLoading(false);
-            return; 
-        }
-
-        let userRole = 'user'; 
+        // 1. Kiểm tra xem có nhập đúng mã Admin không
+        let userRole = 'user'; // Mặc định
         if (adminCode === SECRET_ADMIN_CODE) {
             userRole = 'admin';
         }
 
+        // 2. Gửi thông tin kèm theo role lên Supabase
         const { error } = await supabase.auth.signUp({
           email,
           password,
           options: { 
             data: { 
                 full_name: 'User',
-                role: userRole 
+                role: userRole // Truyền role vào đây
             } 
           }
         });
 
         if (error) throw error;
         
+        // Thông báo khác biệt nếu đăng ký thành công Admin
         if (userRole === 'admin') {
             setMessage({ type: 'success', text: 'Đăng ký ADMIN thành công! Hãy kiểm tra email.' });
         } else {
@@ -88,6 +67,7 @@ const AuthModal = () => {
         }
       } 
       else if (variant === 'login') {
+        // --- LOGIC ĐĂNG NHẬP ---
         const { error } = await supabase.auth.signInWithPassword({
           email,
           password
@@ -101,6 +81,7 @@ const AuthModal = () => {
         }, 1000);
       }
       else if (variant === 'recovery') {
+        // --- KHÔI PHỤC MẬT KHẨU ---
         const { error } = await supabase.auth.resetPasswordForEmail(email, {
           redirectTo: `${window.location.origin}/update-password`,
         });
@@ -150,9 +131,10 @@ const AuthModal = () => {
             onChange={(e) => setEmail(e.target.value)}
             disabled={loading}
             required
-            className="bg-neutral-700 p-3 rounded text-white outline-none focus:ring-2 focus:ring-green-500 transition border border-transparent"
+            className="bg-neutral-700 p-3 rounded text-white outline-none focus:ring-2 focus:ring-green-500 transition"
           />
           
+          {/* Ẩn ô Password nếu đang ở chế độ Quên mật khẩu */}
           {variant !== 'recovery' && (
             <input
               type="password"
@@ -161,27 +143,11 @@ const AuthModal = () => {
               onChange={(e) => setPassword(e.target.value)}
               disabled={loading}
               required
-              className="bg-neutral-700 p-3 rounded text-white outline-none focus:ring-2 focus:ring-green-500 transition border border-transparent"
+              className="bg-neutral-700 p-3 rounded text-white outline-none focus:ring-2 focus:ring-green-500 transition"
             />
           )}
 
-          {/* Ô Xác nhận mật khẩu: Tô đỏ nếu không khớp */}
-          {variant === 'register' && (
-            <input
-              type="password"
-              placeholder="Xác nhận mật khẩu"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              disabled={loading}
-              required
-              className={`bg-neutral-700 p-3 rounded text-white outline-none transition border 
-                ${isPasswordMismatch 
-                  ? 'border-red-500 focus:ring-2 focus:ring-red-500 focus:border-red-500' // Style khi KHÔNG khớp
-                  : 'border-transparent focus:ring-2 focus:ring-green-500' // Style khi khớp hoặc chưa nhập
-                }`}
-            />
-          )}
-
+          {/* Ô nhập Admin Code - CHỈ HIỆN KHI ĐĂNG KÝ */}
           {variant === 'register' && (
              <input
                 type="text"
