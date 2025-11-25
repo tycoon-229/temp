@@ -12,7 +12,7 @@ const Account = () => {
   // --- STATES ---
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [isEditing, setIsEditing] = useState(false); // Trạng thái: Đang xem hay Đang sửa
+  const [isEditing, setIsEditing] = useState(false); 
   const [message, setMessage] = useState(null);
 
   // Dữ liệu Profile
@@ -21,10 +21,7 @@ const Account = () => {
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
 
-  // Biến backup để nếu bấm "Hủy" thì quay về dữ liệu cũ
   const [originalData, setOriginalData] = useState({}); 
-
-  // Ref cho input file (để bấm vào avatar thì kích hoạt chọn ảnh)
   const fileInputRef = useRef(null);
 
   // 1. TẢI DỮ LIỆU
@@ -41,7 +38,6 @@ const Account = () => {
 
         setUser(session.user);
 
-        // Lấy thông tin từ bảng profiles
         const { data, error } = await supabase
           .from('profiles')
           .select('full_name, avatar_url, phone')
@@ -55,7 +51,6 @@ const Account = () => {
           setAvatarUrl(data.avatar_url || "");
           setPhone(data.phone || "");
           
-          // Lưu bản sao lưu để dùng khi Hủy bỏ
           setOriginalData({
             fullName: data.full_name || "",
             phone: data.phone || "",
@@ -79,22 +74,17 @@ const Account = () => {
       const file = event.target.files[0];
       if (!file) return;
 
-      // Tạo tên file duy nhất: avatar-IDUser-Time.png
       const fileExt = file.name.split('.').pop();
       const fileName = `avatar-${user.id}-${Date.now()}.${fileExt}`;
       const filePath = `${fileName}`;
 
-      // Upload lên Bucket 'images'
       const { error: uploadError } = await supabase.storage
         .from('images')
         .upload(filePath, file);
 
       if (uploadError) throw uploadError;
 
-      // Lấy đường dẫn công khai (Public URL)
       const { data } = supabase.storage.from('images').getPublicUrl(filePath);
-      
-      // Cập nhật giao diện ngay lập tức
       setAvatarUrl(data.publicUrl);
 
     } catch (error) {
@@ -107,14 +97,21 @@ const Account = () => {
     setSaving(true);
     setMessage(null);
 
+    // Kiểm tra độ dài số điện thoại (Ví dụ: 9-12 số)
+    if (phone.length > 0 && (phone.length < 9 || phone.length > 12)) {
+        setMessage({ type: 'error', text: 'Số điện thoại không hợp lệ (9-12 số)' });
+        setSaving(false);
+        return;
+    }
+
     try {
       const { error } = await supabase
         .from('profiles')
         .upsert({
           id: user?.id,
           full_name: fullName,
-          phone: phone,         // Lưu số điện thoại
-          avatar_url: avatarUrl, // Lưu link ảnh mới
+          phone: phone,         
+          avatar_url: avatarUrl, 
           updated_at: new Date().toISOString(),
         });
 
@@ -122,19 +119,15 @@ const Account = () => {
       
       setMessage({ type: 'success', text: 'Cập nhật thành công!' });
       
-      // Cập nhật lại bản backup
       setOriginalData({ fullName, phone, avatarUrl });
-      setIsEditing(false); // Tắt chế độ sửa
+      setIsEditing(false); 
       
-      // --- QUAN TRỌNG: Phát tín hiệu cập nhật cho Header biết ---
       if (typeof window !== 'undefined') {
         window.dispatchEvent(new Event("profile-updated"));
       }
-      // ---------------------------------------------------------
       
-      // Tự tắt thông báo
       setTimeout(() => setMessage(null), 3000);
-      router.refresh(); // Reload nhẹ để cập nhật avatar trên Header
+      router.refresh(); 
 
     } catch (error) {
       setMessage({ type: 'error', text: 'Lỗi: ' + error.message });
@@ -150,6 +143,14 @@ const Account = () => {
     setAvatarUrl(originalData.avatarUrl);
     setIsEditing(false);
     setMessage(null);
+  };
+
+  // 5. HÀM CHỈ CHO PHÉP NHẬP SỐ
+  const handlePhoneChange = (e) => {
+    const value = e.target.value;
+    // Regex: Thay thế tất cả ký tự KHÔNG phải số (\D) bằng rỗng
+    const numericValue = value.replace(/\D/g, '');
+    setPhone(numericValue);
   };
 
   return (
@@ -170,7 +171,6 @@ const Account = () => {
         ) : (
           <div className="relative w-full max-w-xl bg-neutral-800/50 rounded-lg p-8 border border-neutral-700 flex flex-col items-center gap-y-6">
             
-            {/* --- NÚT CHỈNH SỬA (Góc phải) --- */}
             <div className="absolute top-4 right-4">
               {!isEditing ? (
                 <button 
@@ -191,7 +191,6 @@ const Account = () => {
               )}
             </div>
 
-            {/* --- THÔNG BÁO --- */}
             {message && (
               <div className={`w-full p-3 rounded-md text-center text-sm font-medium mb-2 ${
                 message.type === 'success' 
@@ -202,10 +201,9 @@ const Account = () => {
               </div>
             )}
 
-            {/* --- AVATAR --- */}
             <div className="relative group">
               <div className={`h-32 w-32 rounded-full bg-neutral-700 border-4 ${isEditing ? 'border-green-500 cursor-pointer' : 'border-neutral-900'} overflow-hidden flex items-center justify-center relative`}
-                   onClick={() => isEditing && fileInputRef.current.click()} // Chỉ click được khi đang sửa
+                   onClick={() => isEditing && fileInputRef.current.click()} 
               >
                 {avatarUrl ? (
                   <img src={avatarUrl} alt="Avatar" className="object-cover w-full h-full" />
@@ -213,14 +211,12 @@ const Account = () => {
                   <User size={60} className="text-neutral-400" />
                 )}
                 
-                {/* Lớp phủ khi đang ở chế độ sửa */}
                 {isEditing && (
                   <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
                     <Camera className="text-white opacity-80" size={30} />
                   </div>
                 )}
               </div>
-              {/* Input file ẩn */}
               <input 
                 type="file" 
                 ref={fileInputRef} 
@@ -230,13 +226,10 @@ const Account = () => {
               />
             </div>
             
-            {/* Text hướng dẫn nhỏ */}
             {isEditing && <p className="text-xs text-neutral-500 -mt-4">Nhấn vào ảnh để thay đổi</p>}
 
-            {/* --- FORM --- */}
             <div className="w-full flex flex-col gap-y-4">
               
-              {/* Email (Luôn Read-only) */}
               <div className="flex flex-col gap-y-2">
                 <label className="text-sm font-medium text-neutral-400">Email</label>
                 <input 
@@ -246,11 +239,10 @@ const Account = () => {
                 />
               </div>
 
-              {/* Họ tên */}
               <div className="flex flex-col gap-y-2">
                 <label className={`text-sm font-medium ${isEditing ? 'text-white' : 'text-neutral-400'}`}>Họ và tên hiển thị</label>
                 <input 
-                  disabled={!isEditing} // Khóa nếu không phải chế độ sửa
+                  disabled={!isEditing} 
                   value={fullName} 
                   onChange={(e) => setFullName(e.target.value)}
                   placeholder="Chưa cập nhật tên" 
@@ -262,14 +254,16 @@ const Account = () => {
                 />
               </div>
 
-              {/* Số điện thoại */}
+              {/* SỐ ĐIỆN THOẠI - ĐÃ CẬP NHẬT CHỈ NHẬP SỐ */}
               <div className="flex flex-col gap-y-2">
                 <label className={`text-sm font-medium ${isEditing ? 'text-white' : 'text-neutral-400'}`}>Số điện thoại</label>
                 <input 
-                  disabled={!isEditing} // Khóa nếu không phải chế độ sửa
+                  type="tel"
+                  disabled={!isEditing} 
                   value={phone} 
-                  onChange={(e) => setPhone(e.target.value)}
+                  onChange={handlePhoneChange} // Gọi hàm lọc số
                   placeholder="Chưa cập nhật số điện thoại" 
+                  maxLength={12}
                   className={`px-4 py-3 rounded-md outline-none transition ${
                     isEditing 
                       ? 'bg-neutral-700 text-white border border-neutral-600 focus:border-green-500' 
@@ -278,7 +272,6 @@ const Account = () => {
                 />
               </div>
 
-              {/* Nút Lưu (Chỉ hiện khi đang Sửa) */}
               {isEditing && (
                 <div className="flex gap-x-4 mt-4">
                     <button 
