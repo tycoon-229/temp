@@ -325,6 +325,7 @@ const PlayerContent = ({ song, songUrl }) => {
             {formatTime(duration)}
           </span>
         </div>
+        
       </div>
 
       <div className="hidden md:flex w-full justify-end pr-2">
