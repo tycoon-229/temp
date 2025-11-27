@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from "react";
 import { Howl, Howler } from "howler";
-import { BsPlayFill, BsPauseFill } from "react-icons/bs";
+import { BsPlayFill, BsPauseFill, BsRewind, BsFastForward } from "react-icons/bs";
 import { AiFillStepBackward, AiFillStepForward } from "react-icons/ai";
 import { HiSpeakerWave, HiSpeakerXMark } from "react-icons/hi2";
 import { MdShuffle, MdRepeat, MdRepeatOne } from "react-icons/md";
@@ -21,8 +21,6 @@ const PlayerContent = ({ song, songUrl }) => {
   const [duration, setDuration] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [isShuffle, setIsShuffle] = useState(false);
-  const [repeatMode, setRepeatMode] = useState(false); // false = no repeat, true = repeat one
   
   // Web Audio API references
   const audioContextRef = useRef(null);
@@ -38,6 +36,12 @@ const PlayerContent = ({ song, songUrl }) => {
     });
   }, [song, songUrl]);
 
+  useEffect(() => {
+    if (sound) {
+      sound.loop(player.repeatMode === 2);
+    }
+  }, [player.repeatMode, sound]);
+
   const Icon = isPlaying ? BsPauseFill : BsPlayFill;
   const VolumeIcon = volume === 0 ? HiSpeakerXMark : HiSpeakerWave;
 
@@ -46,19 +50,9 @@ const PlayerContent = ({ song, songUrl }) => {
       return;
     }
 
-    if (repeatMode) {
-      // Repeat current song
-      if (sound) {
-        sound.seek(0);
-        setSeek(0);
-        sound.play();
-      }
-      return;
-    }
-
     const currentIndex = player.ids.findIndex((id) => id === player.activeId);
 
-    if (isShuffle) {
+    if (player.isShuffle) {
       // Select random song
       const availableIds = player.ids.filter(id => id !== player.activeId);
       if (availableIds.length === 0) {
@@ -73,8 +67,11 @@ const PlayerContent = ({ song, songUrl }) => {
       // Normal next
       const nextSong = player.ids[currentIndex + 1];
       if (!nextSong) {
-        // Loop back to first song
-        player.setId(player.ids[0]);
+        // Loop back to first song if repeat all
+        if (player.repeatMode === 1) {
+          player.setId(player.ids[0]);
+        }
+        // If repeatMode === 0, do nothing (stop at end)
       } else {
         player.setId(nextSong);
       }
@@ -86,27 +83,42 @@ const PlayerContent = ({ song, songUrl }) => {
       return;
     }
 
-    const currentIndex = player.ids.findIndex((id) => id === player.activeId);
-    const previousSong = player.ids[currentIndex - 1];
-
-    if (!previousSong) {
-      return player.setId(player.ids[player.ids.length - 1]);
+    // Try to go back in history
+    const previousId = player.popHistory();
+    if (previousId) {
+      player.setId(previousId, true); // from history, don't push back
+      return;
     }
 
-    player.setId(previousSong);
+    // If no history, reset the current song to the beginning
+    if (sound) {
+      sound.seek(0);
+      setSeek(0);
+    }
   };
 
-  useEffect(() => {
+    useEffect(() => {
     if (sound) sound.unload();
-    setIsLoading(true); setSeek(0);
+    setIsLoading(true);
+    setSeek(0);
     const newSound = new Howl({
-      src: [songUrl], format: ['mp3', 'mpeg'], html5: true, volume: volume,
-      onplay: () => { setIsPlaying(true); setDuration(newSound.duration()); 
-        const updateSeek = () => { if(newSound.playing()) { setSeek(newSound.seek()); rafRef.current = requestAnimationFrame(updateSeek); }}; 
-        rafRef.current = requestAnimationFrame(updateSeek); 
+      src: [songUrl], format: ['mp3', 'mpeg'], volume: volume, html5: true, preload: 'metadata',
+      onplay: () => {
+        setIsPlaying(true);
+        setDuration(newSound.duration());
+        if (!rafRef.current) {
+          const updateSeek = () => { setSeek(newSound.seek()); rafRef.current = requestAnimationFrame(updateSeek); };
+          updateSeek();
+        }
       },
       onpause: () => { setIsPlaying(false); cancelAnimationFrame(rafRef.current); },
-      onend: () => { setIsPlaying(false); setSeek(0); onPlayNext(); },
+      onend: () => {
+        setIsPlaying(false);
+        setSeek(0);
+        if (player.repeatMode !== 2) {
+          onPlayNext();
+        }
+      },
       onload: () => { setDuration(newSound.duration()); setIsLoading(false); setError(null); },
       onloaderror: (id, err) => { setError(`Error: ${err}`); setIsLoading(false); }
     });
@@ -133,7 +145,7 @@ const PlayerContent = ({ song, songUrl }) => {
   
   const toggleMute = () => {
     if (!sound) return;
-    
+
     try {
       if (volume === 0) {
         setVolume(1);
@@ -144,6 +156,28 @@ const PlayerContent = ({ song, songUrl }) => {
       }
     } catch (err) {
       console.error('Mute error:', err);
+    }
+  }
+
+  const handleSkipBackward = () => {
+    if (!sound) return;
+    try {
+      const newSeek = Math.max(0, seek - 5);
+      sound.seek(newSeek);
+      setSeek(newSeek);
+    } catch (err) {
+      console.error('Skip backward error:', err);
+    }
+  }
+
+  const handleSkipForward = () => {
+    if (!sound) return;
+    try {
+      const newSeek = Math.min(duration, seek + 5);
+      sound.seek(newSeek);
+      setSeek(newSeek);
+    } catch (err) {
+      console.error('Skip forward error:', err);
     }
   }
 
@@ -179,9 +213,9 @@ const PlayerContent = ({ song, songUrl }) => {
     const hrs = Math.floor(s / 3600);
     const mins = Math.floor((s % 3600) / 60);
     const secs = s % 60;
-    const mm = String(mins).padStart(2, "0");
     const ss = String(secs).padStart(2, "0");
     if (hrs > 0) {
+      const mm = String(mins).padStart(2, "0");
       return `${hrs}:${mm}:${ss}`;
     }
     return `${mins}:${ss}`;
@@ -190,13 +224,6 @@ const PlayerContent = ({ song, songUrl }) => {
 
   return (
     <div className="grid grid-cols-2 md:grid-cols-3 h-full gap-x-6 items-center">
-      
-      {/* Error Toast */}
-      {error && (
-        <div className="absolute -top-12 left-1/2 -translate-x-1/2 bg-red-500/90 backdrop-blur text-white text-xs font-mono py-1 px-3 rounded border border-red-400 z-50 animate-bounce">
-          [ERR]: {error}
-        </div>
-      )}
       
       {/* 1. INFO SECTION */}
       <div className="flex w-full justify-start items-center gap-x-4">
@@ -220,19 +247,28 @@ const PlayerContent = ({ song, songUrl }) => {
         
         <div className="flex items-center gap-x-6">
             <button
-                onClick={() => setIsShuffle(!isShuffle)}
+                onClick={() => player.setIsShuffle(!player.isShuffle)}
                 disabled={!sound}
-                className={`transition ${isShuffle ? 'text-emerald-600 dark:text-emerald-500 drop-shadow-md' : 'text-neutral-400 hover:text-neutral-800 dark:hover:text-white'}`}
+                className={`transition ${player.isShuffle ? 'text-emerald-600 dark:text-emerald-500 drop-shadow-md' : 'text-neutral-400 hover:text-neutral-800 dark:hover:text-white'}`}
             >
                 <MdShuffle size={20} />
             </button>
-            
+
             <button
                 onClick={onPlayPrevious}
                 disabled={isLoading || !sound}
                 className="text-neutral-400 hover:text-neutral-800 dark:hover:text-white transition hover:scale-110"
             >
                 <AiFillStepBackward size={26} />
+            </button>
+
+            <button
+                onClick={handleSkipBackward}
+                disabled={!sound}
+                className="text-neutral-400 hover:text-neutral-800 dark:hover:text-white transition hover:scale-110"
+                title="Skip -5s"
+            >
+                <BsRewind size={20} />
             </button>
 
             <button
@@ -245,6 +281,15 @@ const PlayerContent = ({ song, songUrl }) => {
             </button>
 
             <button
+                onClick={handleSkipForward}
+                disabled={!sound}
+                className="text-neutral-400 hover:text-neutral-800 dark:hover:text-white transition hover:scale-110"
+                title="Skip +5s"
+            >
+                <BsFastForward size={20} />
+            </button>
+
+            <button
                 onClick={onPlayNext}
                 disabled={isLoading || !sound}
                 className="text-neutral-400 hover:text-neutral-800 dark:hover:text-white transition hover:scale-110"
@@ -253,11 +298,20 @@ const PlayerContent = ({ song, songUrl }) => {
             </button>
 
             <button
-                onClick={() => setRepeatMode(!repeatMode)}
+                onClick={() => player.setRepeatMode((player.repeatMode + 1) % 3)}
                 disabled={!sound}
-                className={`transition ${repeatMode ? 'text-emerald-600 dark:text-emerald-500 drop-shadow-md' : 'text-neutral-400 hover:text-neutral-800 dark:hover:text-white'}`}
+                className={`cursor-pointer hover:scale-110 disabled:opacity-50 disabled:cursor-not-allowed transition duration-200 ${
+                  player.repeatMode === 0 ? 'text-neutral-400 hover:text-neutral-300' :
+                  player.repeatMode === 1 ? 'text-green-500 hover:text-green-400' :
+                  'text-green-500 hover:text-green-400'
+                }`}
+                title={
+                  player.repeatMode === 0 ? "No Repeat" :
+                  player.repeatMode === 1 ? "Repeat All" :
+                  "Repeat One"
+                }
             >
-                {repeatMode ? <MdRepeatOne size={20} /> : <MdRepeat size={20} />}
+                {player.repeatMode === 2 ? <MdRepeatOne size={20} /> : <MdRepeat size={20} />}
             </button>
         </div>
 
@@ -267,7 +321,7 @@ const PlayerContent = ({ song, songUrl }) => {
                 {formatTime(seek)}
              </span>
              <div className="flex-1 h-full flex items-center">
-                 <Slider value={seek} max={duration} onChange={handleSeekChange} disabled={isLoading || !sound} />
+                 <Slider value={seek} max={duration || 100} onChange={handleSeekChange} disabled={isLoading || !sound} />
              </div>
              <span className="text-[10px] font-mono text-neutral-500 dark:text-neutral-500 min-w-[40px]">
                 {formatTime(duration)}
@@ -276,25 +330,15 @@ const PlayerContent = ({ song, songUrl }) => {
         
       </div>
 
-      {/* 4. VOLUME CONTROL */}
+      {/* 4. MUTE TOGGLE BUTTON */}
       <div className="hidden md:flex w-full justify-end pr-2">
-        <div className="flex items-center gap-x-3 w-[140px]">
-          <button
-            onClick={toggleMute}
-            disabled={!sound}
-            className="text-neutral-400 hover:text-emerald-600 dark:hover:text-emerald-500 transition"
-          >
-            <VolumeIcon size={22} />
-          </button>
-          <Slider 
-            value={volume} 
-            onChange={(value) => { 
-              setVolume(value);
-              if (sound) sound.volume(value);
-            }} 
-            disabled={!sound}
-          />
-        </div>
+        <button
+          onClick={toggleMute}
+          disabled={!sound}
+          className="flex items-center justify-center h-10 w-10 text-neutral-400 hover:text-emerald-600 dark:hover:text-emerald-500 transition hover:scale-110"
+        >
+          <VolumeIcon size={24} />
+        </button>
       </div>
 
     </div>
