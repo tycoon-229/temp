@@ -3,6 +3,7 @@
 import Image from "next/image";
 import useLoadImage from "@/hooks/useLoadImage";
 import { Play } from "lucide-react";
+import Link from "next/link";
 
 const SongItem = ({ data, onClick }) => {
   const imagePath = useLoadImage(data);
@@ -75,8 +76,14 @@ const SongItem = ({ data, onClick }) => {
             {data.title}
         </p>
         <p className="text-[10px] font-mono text-neutral-500 dark:text-neutral-400 w-full truncate pb-1 flex items-center gap-1 uppercase tracking-wider">
-          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block"></span>
-          {data.author}
+          {/* Link tới trang nghệ sĩ */}
+          <Link 
+            href={`/artist/${encodeURIComponent(data.author)}`}
+            onClick={(e) => e.stopPropagation()} // Ngăn không cho click lan ra ngoài (không phát nhạc)
+            className="hover:text-emerald-600 dark:hover:text-emerald-400 hover:underline transition-colors z-10"
+          >
+            {data.author}
+          </Link>
         </p>
       </div>
     </div>

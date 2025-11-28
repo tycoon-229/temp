@@ -1,6 +1,6 @@
 import getSongs from "@/app/actions/getSongs"; 
 import SearchContent from "@/components/SearchContent"; 
-import { Search, Disc, Filter, X } from "lucide-react";
+import { Search, Disc, Filter, X, Tag } from "lucide-react"; // Thêm icon Tag
 import Link from "next/link";
 import qs from "query-string"; 
 
@@ -16,15 +16,27 @@ const SearchPage = async ({ searchParams }) => {
       tag: params.tag 
   });
 
+  // --- LOGIC TITLE THÔNG MINH ---
+  let pageTitle = "SEARCH_RESULTS";
+  let pageIcon = <Search className="text-emerald-500" size={40} />;
+
+  if (params.tag && !params.title) {
+      pageTitle = `${params.tag.toUpperCase()} SONGS`; // Ví dụ: POP SONGS
+      pageIcon = <Tag className="text-emerald-500" size={40} />;
+  } else if (params.title) {
+      pageTitle = `RESULTS FOR "${params.title.toUpperCase()}"`;
+  }
+
   return (
-    // Dùng flex flex-col để nội dung luôn đẩy xuống dưới, không đè lên trên
     <div className="flex flex-col w-full h-full p-6 pb-[120px] overflow-y-auto">
       
-      {/* HEADER: Luôn hiển thị dù có kết quả hay không */}
+      {/* HEADER */}
       <div className="mb-6 flex flex-col gap-4">
+        
+        {/* Tiêu đề động */}
         <h1 className="text-3xl md:text-5xl font-bold font-mono text-neutral-800 dark:text-white tracking-tighter flex items-center gap-3">
-            <Search className="text-emerald-500" size={40} />
-            SEARCH_RESULTS
+            {pageIcon}
+            {pageTitle}
         </h1>
         
         {/* Status Bar */}
@@ -50,7 +62,7 @@ const SearchPage = async ({ searchParams }) => {
         </div>
       </div>
 
-      {/* FILTER TAGS: Luôn hiển thị */}
+      {/* FILTER TAGS */}
       <div className="mb-8 p-4 bg-white/60 dark:bg-black/20 rounded-xl border border-neutral-200 dark:border-white/5 backdrop-blur-md">
         <div className="flex items-center gap-2 mb-3 text-xs font-mono text-neutral-500 dark:text-neutral-400 tracking-widest">
             <Filter size={14}/>
@@ -88,7 +100,7 @@ const SearchPage = async ({ searchParams }) => {
         </div>
       </div>
       
-      {/* CONTENT: Hiển thị kết quả hoặc thông báo lỗi */}
+      {/* CONTENT */}
       {songs.length === 0 ? (
          <div className="flex flex-col items-center justify-center py-20 opacity-70 font-mono gap-4 animate-in fade-in zoom-in duration-500 text-neutral-500 dark:text-neutral-400">
             <div className="relative">

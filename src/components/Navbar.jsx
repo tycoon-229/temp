@@ -149,7 +149,14 @@ const Navbar = () => {
   };
 
   return (
-    <div className="h-[80px] w-full glass border-b border-neutral-200 dark:border-white/5 flex items-center justify-between px-6 sticky top-0 z-50 shrink-0 transition-colors duration-300 bg-white/70 dark:bg-black/40 backdrop-blur-xl hover:border-emerald-200 hover:shadow-[0_0_5px_rgba(16,185,129,0.2)]">
+    <div className="
+        w-full h-full /* Chiếm hết chiều cao 80px của thẻ cha */
+        flex items-center justify-between px-6 
+        bg-white/70 dark:bg-black/40 backdrop-blur-xl 
+        border-b border-neutral-200 dark:border-white/5
+        transition-colors duration-300
+        hover:border-emerald-200 hover:shadow-[0_0_5px_rgba(16,185,129,0.2)]
+    ">
       
       {/* LEFT: LOGO */}
       <div className="flex items-center gap-x-6">
