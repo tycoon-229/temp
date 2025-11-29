@@ -6,6 +6,8 @@ import { supabase } from "@/lib/supabaseClient";
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useModal } from "@/context/ModalContext";
 import qs from "query-string"; 
+import { SlidersHorizontal } from "lucide-react"; // Icon mới
+import AdvancedSearchModal from "./AdvancedSearchModal"; // Component Modal (sẽ tạo ở bước 4)
 
 const Navbar = () => {
   const router = useRouter();
@@ -17,6 +19,7 @@ const Navbar = () => {
   const [isAdmin, setIsAdmin] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
   const menuRef = useRef(null);
+  const [showAdvancedSearch, setShowAdvancedSearch] = useState(false);
   
   // Logic Search
   const [searchValue, setSearchValue] = useState("");
@@ -148,6 +151,15 @@ const Navbar = () => {
     }
   };
 
+  // Hàm gọi search khi bấm nút kính lúp
+  const handleSearchClick = () => {
+      if (searchValue) {
+        const query = { title: searchValue };
+        const url = qs.stringifyUrl({ url: '/search', query: query }, { skipEmptyString: true, skipNull: true });
+        router.push(url);
+      }
+  }
+
   return (
     <div className="
         w-full h-full /* Chiếm hết chiều cao 80px của thẻ cha */
@@ -170,20 +182,19 @@ const Navbar = () => {
         </div>
       </div>
 
-      {/* CENTER: SEARCH */}
-      <div className="flex-1 max-w-[500px] mx-4">
-        <div className="relative group">
-            <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-                <Search size={18} className="text-neutral-500 dark:text-neutral-400 group-hover:text-emerald-500 transition duration-300" />
-            </div>
+      {/* CENTER: SEARCH BAR (SỬA UI) */}
+      <div className="flex-1 max-w-[600px] mx-4">
+        <div className="relative group w-full">
+            
+            {/* INPUT */}
             <input 
                 type="text"
                 placeholder="Search songs, artists..."
                 value={searchValue}
                 onChange={(e) => setSearchValue(e.target.value)}
-                onKeyDown={handleKeyDown} // Sự kiện nhấn phím
+                onKeyDown={handleKeyDown}
                 className="
-                  block w-full p-2.5 pl-10 text-sm 
+                  block w-full py-2.5 pl-5 pr-[80px] text-sm /* pr-80px để chừa chỗ cho 2 nút bên phải */
                   bg-neutral-100 dark:bg-black/20 
                   text-neutral-900 dark:text-white 
                   border border-neutral-300 dark:border-white/10 
@@ -197,6 +208,32 @@ const Navbar = () => {
                   focus:shadow-[0_0_20px_rgba(16,185,129,0.5)]
                 "
             />
+            
+            {/* CỤM NÚT BÊN PHẢI (Advanced + Search) */}
+            <div className="absolute inset-y-0 right-1 flex items-center gap-1">
+                
+                {/* Nút Advanced Filter */}
+                <button 
+                    onClick={() => setShowAdvancedSearch(true)}
+                    className="p-2 rounded-full text-neutral-400 hover:text-emerald-500 hover:bg-neutral-200 dark:hover:bg-white/10 transition"
+                    title="Advanced Filter"
+                >
+                    <SlidersHorizontal size={16} />
+                </button>
+
+                {/* Vách ngăn nhỏ */}
+                <div className="w-[1px] h-4 bg-neutral-300 dark:bg-white/10"></div>
+
+                {/* Nút Search */}
+                <button 
+                    onClick={handleSearchClick}
+                    className="p-2 rounded-full text-neutral-400 hover:text-emerald-500 hover:bg-neutral-200 dark:hover:bg-white/10 transition"
+                    title="Search"
+                >
+                    <Search size={16} />
+                </button>
+            </div>
+
         </div>
       </div>
 
@@ -277,6 +314,13 @@ const Navbar = () => {
             </div>
           )}
       </div>
+      {/* Modal Tìm Kiếm Nâng Cao */}
+      {showAdvancedSearch && (
+          <AdvancedSearchModal 
+            onClose={() => setShowAdvancedSearch(false)} 
+            currentSearch={searchValue}
+          />
+      )}
     </div>
   );
 }

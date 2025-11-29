@@ -9,11 +9,7 @@ import { MdShuffle, MdRepeat, MdRepeatOne } from "react-icons/md";
 import { AlignJustify } from "lucide-react"; 
 import { useRouter } from "next/navigation";
 
-// --- HOOKS ---
 import usePlayer from "@/hooks/usePlayer";
-import useTrackStats from "@/hooks/useTrackStats"; // [MỚI] Thêm hook thống kê từ Code 2
-
-// --- COMPONENTS ---
 import LikeButton from "./LikeButton";
 import MediaItem from "./MediaItem";
 import Slider from "./Slider";
@@ -22,48 +18,43 @@ const PlayerContent = ({ song, songUrl }) => {
   const player = usePlayer();
   const router = useRouter(); 
   
-  // [MỚI] Kích hoạt thống kê: Đếm giây và cập nhật view
-  useTrackStats(song);
-
   const [isPlaying, setIsPlaying] = useState(false);
   const [sound, setSound] = useState(null);
   const [seek, setSeek] = useState(0);
   const [duration, setDuration] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
-
-  // 1. STATE UI CHO VOLUME (Giữ nguyên logic Code 1)
+  
+  // State UI
   const [volume, setVolume] = useState(1); 
   const [prevVolume, setPrevVolume] = useState(1); 
+  const [isDragging, setIsDragging] = useState(false); 
   
   const rafRef = useRef(null);
 
-  // 2. ĐỒNG BỘ STORE -> UI
+  // Helper kẹp giá trị 0-1
+  const clampVolume = (val) => Math.max(0, Math.min(1, val));
+
+  // 1. Sync Volume
   useEffect(() => {
       if (player.volume !== undefined) {
           setVolume(player.volume);
       }
-  }, [player.volume]);
+  }, []);
 
-  const clampVolume = (val) => Math.max(0, Math.min(1, val));
-
-  useEffect(() => {
-    console.log('[PlayerContent] Song Changed:', { title: song?.title, id: song?.id });
-  }, [song, songUrl]);
-
+  // 2. Sync Loop
   useEffect(() => {
     if (sound) { sound.loop(player.repeatMode === 2); }
   }, [player.repeatMode, sound]);
 
-
-
   const Icon = isPlaying ? BsPauseFill : BsPlayFill;
   const VolumeIcon = volume === 0 ? HiSpeakerXMark : HiSpeakerWave;
 
+  // ... (Giữ nguyên toàn bộ logic onPlayNext, onPlayPrevious, useEffect init howler...)
   const onPlayNext = () => {
     if (player.ids.length === 0) return;
     const currentIndex = player.ids.findIndex((id) => id === player.activeId);
-
+    
     if (player.isShuffle) {
       const availableIds = player.ids.filter(id => id !== player.activeId);
       if (availableIds.length === 0) {
@@ -96,12 +87,10 @@ const PlayerContent = ({ song, songUrl }) => {
     }
   };
 
-  // INIT HOWLER
   useEffect(() => {
     if (sound) sound.unload();
     setIsLoading(true); setSeek(0);
     
-    // Lấy volume từ Store để khởi tạo âm thanh
     const initialVol = clampVolume(player.volume);
 
     const newSound = new Howl({
@@ -114,7 +103,9 @@ const PlayerContent = ({ song, songUrl }) => {
         setIsPlaying(true);
         setDuration(newSound.duration());
         const updateSeek = () => { 
-             setSeek(newSound.seek()); 
+             if (!isDragging && newSound.playing()) {
+                setSeek(newSound.seek()); 
+             }
              rafRef.current = requestAnimationFrame(updateSeek); 
         };
         updateSeek();
@@ -137,7 +128,7 @@ const PlayerContent = ({ song, songUrl }) => {
     });
     
     setSound(newSound);
-    setVolume(initialVol); 
+    setVolume(initialVol);
     
     return () => { 
        if(rafRef.current) cancelAnimationFrame(rafRef.current); 
@@ -151,16 +142,14 @@ const PlayerContent = ({ song, songUrl }) => {
     else sound.pause();
   };
   
-  // 3. LOGIC VOLUME & MUTE
   const handleVolumeChange = (value) => {
       let val = parseFloat(value);
-      if (val > 1) val = val / 100;
+      if (val > 1) val = val / 100; 
       const safeVol = clampVolume(val);
 
       setVolume(safeVol);
       if (sound) sound.volume(safeVol);
       player.setVolume(safeVol);
-      
       if (safeVol > 0) setPrevVolume(safeVol);
   };
 
@@ -169,7 +158,7 @@ const PlayerContent = ({ song, songUrl }) => {
         const restoreVol = prevVolume > 0 ? prevVolume : 1;
         handleVolumeChange(restoreVol);
     } else {
-        setPrevVolume(volume);
+        setPrevVolume(volume); 
         handleVolumeChange(0);
     }
   }
@@ -189,9 +178,13 @@ const PlayerContent = ({ song, songUrl }) => {
   }
 
   const handleSeekChange = (newValue) => {
-    if (!sound) return;
-    sound.seek(newValue);
+    setIsDragging(true);
     setSeek(newValue);
+  };
+
+  const handleSeekCommit = (newValue) => {
+    if (sound) sound.seek(newValue);
+    setIsDragging(false);
   };
   
   useEffect(() => {
@@ -222,20 +215,23 @@ const PlayerContent = ({ song, songUrl }) => {
         </div>
       )}
 
-      {/* 1. INFO */}
-      <div className="flex w-full justify-start items-center gap-x-4">
-         <MediaItem data={song} />
-         <LikeButton songId={song.id} />
+      {/* 1. INFO SECTION (ĐÃ SỬA) */}
+      {/* Thêm w-auto hoặc max-w để giới hạn chiều rộng, giúp LikeButton không bị đẩy xa */}
+      <div className="flex w-full justify-start items-center">
+         <div className="flex items-center gap-x-3 w-auto max-w-[300px]">
+             <MediaItem data={song} />
+             <LikeButton songId={song?.id} />
+         </div>
       </div>
 
-      {/* 2. MOBILE PLAY */}
+      {/* 2. MOBILE PLAY BUTTON */}
       <div className="flex md:hidden col-auto w-full justify-end items-center">
         <button onClick={handlePlay} disabled={!sound || isLoading} className="flex items-center justify-center h-10 w-10 rounded-full bg-emerald-500 text-black shadow-md disabled:opacity-50">
-          {isLoading ? <div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin"/> : <Icon size={24} />}
+          {isLoading ? <div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin"/> : <Icon size={24} fill="currentColor" />}
         </button>
       </div>
 
-      {/* 3. CONTROLS */}
+      {/* 3. DESKTOP CONTROLS */}
       <div className="hidden md:flex flex-col justify-center items-center w-full max-w-[722px] gap-y-2">
         <div className="flex items-center gap-x-6">
             <button onClick={() => player.setIsShuffle(!player.isShuffle)} disabled={!sound} className={`transition ${player.isShuffle ? 'text-emerald-600 dark:text-emerald-500 drop-shadow-md' : 'text-neutral-400 hover:text-neutral-800 dark:hover:text-white'}`}>
@@ -248,7 +244,7 @@ const PlayerContent = ({ song, songUrl }) => {
                 <BsRewind size={20} />
             </button>
             <button onClick={handlePlay} disabled={!sound || isLoading} className="flex items-center justify-center h-10 w-10 rounded-full bg-emerald-500 text-white dark:text-black shadow-md hover:scale-110 transition active:scale-95">
-                 {isLoading ? <div className="w-5 h-5 border-2 border-white/50 border-t-transparent rounded-full animate-spin"/> : <Icon size={24} className="ml-0.5"/>}
+                 {isLoading ? <div className="w-5 h-5 border-2 border-white/50 border-t-transparent rounded-full animate-spin"/> : <Icon size={24} className="ml-0.5" fill="currentColor"/>}
             </button>
             <button onClick={handleSkipForward} disabled={!sound} className="text-neutral-400 hover:text-neutral-800 dark:hover:text-white transition hover:scale-110" title="Skip +5s">
                 <BsFastForward size={20} />
@@ -256,24 +252,21 @@ const PlayerContent = ({ song, songUrl }) => {
             <button onClick={onPlayNext} disabled={isLoading || !sound} className="text-neutral-400 hover:text-neutral-800 dark:hover:text-white transition hover:scale-110">
                 <AiFillStepForward size={26} />
             </button>
-            <button onClick={() => {
-              const currentMode = player.repeatMode;
-              const newMode = (currentMode + 1) % 3;
-              player.setRepeatMode(newMode);
-              if (newMode === 1 && player.ids.length > 0) {
-                player.setId(player.ids[0]);
-              } else if (newMode === 2 && sound) {
-                sound.seek(0);
-                sound.play();
-              }
-            }} disabled={!sound} className={`transition ${player.repeatMode !== 0 ? 'text-emerald-600 dark:text-emerald-500 drop-shadow-md' : 'text-neutral-400 hover:text-neutral-800 dark:hover:text-white'}`} title={player.repeatMode === 0 ? "No Repeat" : player.repeatMode === 1 ? "Repeat All" : "Repeat One"}>
+            <button onClick={() => player.setRepeatMode((player.repeatMode + 1) % 3)} disabled={!sound} className={`transition ${player.repeatMode !== 0 ? 'text-emerald-600 dark:text-emerald-500 drop-shadow-md' : 'text-neutral-400 hover:text-neutral-800 dark:hover:text-white'}`} title={player.repeatMode === 0 ? "No Repeat" : player.repeatMode === 1 ? "Repeat All" : "Repeat One"}>
                 {player.repeatMode === 2 ? <MdRepeatOne size={20} /> : <MdRepeat size={20} />}
             </button>
         </div>
+        
         <div className="w-full flex items-center gap-x-3">
              <span className="text-[10px] font-mono text-emerald-600 dark:text-emerald-500 min-w-[40px] text-right">{formatTime(seek)}</span>
              <div className="flex-1 h-full flex items-center">
-                 <Slider value={seek} max={duration || 100} onChange={handleSeekChange} disabled={isLoading || !sound} />
+                 <Slider 
+                    value={seek} 
+                    max={duration || 100} 
+                    onChange={handleSeekChange} 
+                    onCommit={handleSeekCommit} 
+                    disabled={isLoading || !sound} 
+                 />
              </div>
              <span className="text-[10px] font-mono text-neutral-500 dark:text-neutral-500 min-w-[40px]">{formatTime(duration)}</span>
         </div>
@@ -288,6 +281,7 @@ const PlayerContent = ({ song, songUrl }) => {
           
           <Slider 
             value={volume} 
+            max={1}
             onChange={handleVolumeChange} 
             disabled={!sound} 
           />

@@ -24,8 +24,7 @@ const SongSection = ({ title, songs, moreLink }) => {
   return (
     <div className="mb-12">
       
-      {/* --- SỬA LỖI TẠI ĐÂY --- */}
-      {/* Chỉ render phần Header này nếu có 'title' */}
+      {/* --- FIX: Chỉ render Header nếu có title --- */}
       {title && (
         <div className="flex items-center justify-between mb-4">
            <div className="flex items-center gap-2">
@@ -55,7 +54,7 @@ const SongSection = ({ title, songs, moreLink }) => {
           />
         ))}
 
-        {/* Thẻ Xem Thêm (Nếu có link) */}
+        {/* Thẻ Xem Thêm (Nếu có) */}
         {moreLink && (
             <Link href={moreLink} className="
                 group relative flex flex-col items-center justify-center 

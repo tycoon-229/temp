@@ -1,8 +1,9 @@
 import getSongs from "@/app/actions/getSongs"; 
 import SearchContent from "@/components/SearchContent"; 
-import { Search, Disc, Filter, X, Tag } from "lucide-react"; // Thêm icon Tag
+import { Search, Disc, Filter, X, Tag, UserCheck } from "lucide-react"; // Thêm icon Tag
 import Link from "next/link";
 import qs from "query-string"; 
+import Image from "next/image";
 
 export const revalidate = 0;
 
@@ -11,7 +12,7 @@ const GENRES = ["Pop", "Rock", "Electronic", "HipHop", "Jazz", "Indie", "Cinemat
 const SearchPage = async ({ searchParams }) => {
   const params = await searchParams;
   
-  const songs = await getSongs({ 
+  const { songs, artists } = await getSongs({ 
       title: params.title, 
       tag: params.tag 
   });
@@ -99,6 +100,28 @@ const SearchPage = async ({ searchParams }) => {
             })}
         </div>
       </div>
+
+      {/* --- PHẦN MỚI: TOP RESULT (ARTIST) --- */}
+        {/* Chỉ hiện khi tìm theo tên và có kết quả Artist khớp */}
+        {params.title && artists && artists.length > 0 && (
+            <div className="mb-10">
+                <h2 className="text-lg font-bold font-mono text-neutral-700 dark:text-neutral-300 mb-4 tracking-widest">TOP RESULT</h2>
+                <Link href={`/artist/${encodeURIComponent(artists[0].name)}`} className="group block w-full md:w-[400px] bg-white/60 dark:bg-neutral-900/40 border border-neutral-200 dark:border-white/10 backdrop-blur-xl rounded-2xl p-6 hover:bg-white/90 dark:hover:bg-neutral-800/60 hover:border-emerald-500/50 transition-all duration-300 hover:shadow-lg cursor-pointer">
+                    <div className="flex items-center gap-6">
+                        <div className="relative w-24 h-24 rounded-full overflow-hidden shadow-md border-2 border-white dark:border-neutral-700 group-hover:scale-105 transition">
+                            <Image src={artists[0].image} alt={artists[0].name} fill className="object-cover"/>
+                        </div>
+                        <div className="flex-1">
+                            <h3 className="text-2xl font-bold text-neutral-900 dark:text-white font-mono group-hover:text-emerald-500 transition">{artists[0].name}</h3>
+                            <p className="text-xs font-mono text-neutral-500 dark:text-neutral-400 mt-1 uppercase tracking-widest">Artist</p>
+                            <button className="mt-3 px-4 py-1.5 rounded-full bg-emerald-500 text-black text-xs font-bold font-mono flex items-center gap-2 w-max hover:bg-emerald-400 transition shadow-sm">
+                                <UserCheck size={14}/> PROFILE
+                            </button>
+                        </div>
+                    </div>
+                </Link>
+            </div>
+        )}
       
       {/* CONTENT */}
       {songs.length === 0 ? (

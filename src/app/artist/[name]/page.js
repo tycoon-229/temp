@@ -46,7 +46,10 @@ const ArtistPage = ({ params }) => {
             getSongs({ artist: name, limit: 20 }),
             getAlbums(name)
         ]);
-        setData({ songs: songsData, albums: albumsData });
+        setData({ 
+            songs: songsData.songs || [], // <--- QUAN TRỌNG
+            albums: albumsData 
+        });
 
         const { data: { user } } = await supabase.auth.getUser();
         if (user) {

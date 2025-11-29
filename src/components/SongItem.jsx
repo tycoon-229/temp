@@ -4,6 +4,7 @@ import Image from "next/image";
 import useLoadImage from "@/hooks/useLoadImage";
 import { Play } from "lucide-react";
 import Link from "next/link";
+import { ScanlineOverlay } from "./CyberComponents"; // <--- IMPORT MỚI
 
 const SongItem = ({ data, onClick }) => {
   const imagePath = useLoadImage(data);
@@ -14,46 +15,29 @@ const SongItem = ({ data, onClick }) => {
       className="
         relative 
         group 
-        flex 
-        flex-col 
-        items-center 
-        justify-center 
-        rounded-2xl 
-        overflow-hidden 
-        cursor-pointer 
-        transition-all
-        duration-300
-        p-3 /* Padding để nội dung cách viền kính ra một chút */
+        flex flex-col items-center justify-center 
+        rounded-2xl overflow-hidden cursor-pointer 
+        transition-all duration-300
+        p-3
         
-        /* --- STYLE CHO THẺ BAO NGOÀI (THE CARD) --- */
+        /* Style Glass */
+        bg-neutral-100/80 border border-neutral-200 shadow-sm backdrop-blur-md
+        dark:bg-neutral-900/40 dark:border-white/5 dark:shadow-none
         
-        /* Light Mode: Kính đục màu xám trắng (Cloudy) */
-        bg-neutral-100/80 
-        border border-neutral-200
-        shadow-sm
-        backdrop-blur-md /* Làm mờ nền phía sau thẻ */
-
-        /* Dark Mode: Kính đen mờ */
-        dark:bg-neutral-900/40
-        dark:border-white/5
-        dark:shadow-none
-        
-        /* --- HOVER EFFECT (Toàn bộ thẻ) --- */
-        /* Light: Đậm hơn chút / Dark: Sáng hơn chút */
+        /* Hover Effect */
         hover:bg-white dark:hover:bg-neutral-800/60
-        
-        /* Viền phát sáng Emerald */
         hover:border-emerald-500/50
-        
-        /* Đổ bóng xanh Emerald */
         hover:shadow-[0_5px_20px_rgba(16,185,129,0.15)]
-        
-        /* Nhích nhẹ lên trên */
         hover:-translate-y-1
       "
     >
-      {/* --- PHẦN 1: ẢNH (Nằm gọn trong thẻ kính) --- */}
-      <div className="relative aspect-square w-full h-full rounded-xl overflow-hidden shadow-inner">
+      {/* --- 1. TÍCH HỢP SCANLINE (Chỉ hiện khi Hover) --- */}
+      <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none z-0">
+         <ScanlineOverlay />
+      </div>
+
+      {/* --- 2. ẢNH (z-10 để nổi lên trên scanline) --- */}
+      <div className="relative aspect-square w-full h-full rounded-xl overflow-hidden shadow-inner z-10">
         <Image
           className="object-cover transition-transform duration-500 group-hover:scale-110"
           src={imagePath || "/images/liked.png"}
@@ -62,7 +46,6 @@ const SongItem = ({ data, onClick }) => {
           alt="Image"
         />
         
-        {/* Play Overlay Button */}
         <div className="absolute inset-0 flex items-center justify-center bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300 backdrop-blur-[1px]">
             <div className="bg-emerald-500 p-3 rounded-full shadow-xl transform scale-75 group-hover:scale-100 transition-transform duration-300">
                 <Play size={24} fill="black" className="text-black ml-1" />
@@ -70,17 +53,25 @@ const SongItem = ({ data, onClick }) => {
         </div>
       </div>
 
-      {/* --- PHẦN 2: THÔNG TIN (Chữ) --- */}
-      <div className="flex flex-col items-start w-full pt-3 gap-y-1">
-        <p className="font-bold font-mono truncate w-full text-sm text-neutral-800 dark:text-white transition-colors">
+      {/* --- 3. THÔNG TIN (z-10) --- */}
+      <div className="flex flex-col items-start w-full pt-3 gap-y-1 z-10 relative">
+        
+        {/* Link Tên Bài Hát */}
+        <Link 
+            href="/now-playing"
+            onClick={(e) => e.stopPropagation()} 
+            className="font-bold font-mono truncate w-full text-sm text-neutral-800 dark:text-white hover:text-emerald-600 dark:hover:text-emerald-500 transition-colors hover:underline"
+        >
             {data.title}
-        </p>
+        </Link>
+
+        {/* Link Nghệ Sĩ */}
         <p className="text-[10px] font-mono text-neutral-500 dark:text-neutral-400 w-full truncate pb-1 flex items-center gap-1 uppercase tracking-wider">
-          {/* Link tới trang nghệ sĩ */}
+          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block"></span>
           <Link 
             href={`/artist/${encodeURIComponent(data.author)}`}
-            onClick={(e) => e.stopPropagation()} // Ngăn không cho click lan ra ngoài (không phát nhạc)
-            className="hover:text-emerald-600 dark:hover:text-emerald-400 hover:underline transition-colors z-10"
+            onClick={(e) => e.stopPropagation()} 
+            className="hover:text-emerald-600 dark:hover:text-emerald-400 hover:underline transition-colors"
           >
             {data.author}
           </Link>
