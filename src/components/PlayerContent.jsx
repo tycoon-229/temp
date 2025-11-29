@@ -55,13 +55,15 @@ const PlayerContent = ({ song, songUrl }) => {
     if (sound) { sound.loop(player.repeatMode === 2); }
   }, [player.repeatMode, sound]);
 
+
+
   const Icon = isPlaying ? BsPauseFill : BsPlayFill;
   const VolumeIcon = volume === 0 ? HiSpeakerXMark : HiSpeakerWave;
 
   const onPlayNext = () => {
     if (player.ids.length === 0) return;
     const currentIndex = player.ids.findIndex((id) => id === player.activeId);
-    
+
     if (player.isShuffle) {
       const availableIds = player.ids.filter(id => id !== player.activeId);
       if (availableIds.length === 0) {
@@ -254,7 +256,17 @@ const PlayerContent = ({ song, songUrl }) => {
             <button onClick={onPlayNext} disabled={isLoading || !sound} className="text-neutral-400 hover:text-neutral-800 dark:hover:text-white transition hover:scale-110">
                 <AiFillStepForward size={26} />
             </button>
-            <button onClick={() => player.setRepeatMode((player.repeatMode + 1) % 3)} disabled={!sound} className={`transition ${player.repeatMode !== 0 ? 'text-emerald-600 dark:text-emerald-500 drop-shadow-md' : 'text-neutral-400 hover:text-neutral-800 dark:hover:text-white'}`} title={player.repeatMode === 0 ? "No Repeat" : player.repeatMode === 1 ? "Repeat All" : "Repeat One"}>
+            <button onClick={() => {
+              const currentMode = player.repeatMode;
+              const newMode = (currentMode + 1) % 3;
+              player.setRepeatMode(newMode);
+              if (newMode === 1 && player.ids.length > 0) {
+                player.setId(player.ids[0]);
+              } else if (newMode === 2 && sound) {
+                sound.seek(0);
+                sound.play();
+              }
+            }} disabled={!sound} className={`transition ${player.repeatMode !== 0 ? 'text-emerald-600 dark:text-emerald-500 drop-shadow-md' : 'text-neutral-400 hover:text-neutral-800 dark:hover:text-white'}`} title={player.repeatMode === 0 ? "No Repeat" : player.repeatMode === 1 ? "Repeat All" : "Repeat One"}>
                 {player.repeatMode === 2 ? <MdRepeatOne size={20} /> : <MdRepeat size={20} />}
             </button>
         </div>
