@@ -1,4 +1,5 @@
 import { getJamendoTracks } from "@/lib/jamedoClient";
+import { supabase } from "@/lib/supabaseClient";
 
 const formatDuration = (seconds) => {
     if (!seconds) return "00:00";

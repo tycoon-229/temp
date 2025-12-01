@@ -2,81 +2,107 @@
 
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabaseClient";
-import { Heart, Check } from "lucide-react";
+import { Heart, Check, Loader2 } from "lucide-react";
+import { useRouter } from "next/navigation";
 
-const FollowButton = ({ artistName, artistImage }) => {
+const FollowButton = ({ artistName, artistImage, onFollowChange }) => {
+  const router = useRouter();
   const [isFollowing, setIsFollowing] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  // 1. Kiểm tra trạng thái Follow khi load
+  // 1. Kiểm tra xem user hiện tại có đang follow artist này không
   useEffect(() => {
-    const checkFollow = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
+    const checkFollowStatus = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) {
+            setLoading(false);
+            return;
+        }
+
         const { data } = await supabase
           .from('following_artists')
           .select('*')
-          .eq('user_id', user.id)
-          .eq('artist_name', artistName)
+          .eq('user_id', session.user.id)
+          .eq('artist_name', artistName) // So khớp tên nghệ sĩ
           .single();
-        setIsFollowing(!!data);
+
+        if (data) setIsFollowing(true);
+      } catch (error) {
+        // Không tìm thấy => chưa follow
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     };
-    checkFollow();
+
+    checkFollowStatus();
   }, [artistName]);
 
-  // 2. Xử lý khi bấm nút
   const handleFollow = async (e) => {
-    // QUAN TRỌNG: Ngăn không cho sự kiện click lan ra thẻ cha (thẻ Link chuyển trang)
-    e.preventDefault();
+    e.preventDefault(); // Chặn chuyển trang nếu nút đặt trong thẻ Link
     e.stopPropagation();
 
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return alert("Please login to follow artists.");
+    // Check login
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+        alert("Vui lòng đăng nhập để theo dõi nghệ sĩ!");
+        return;
+    }
 
-    // Optimistic UI: Đổi màu ngay lập tức cho mượt
-    const newStatus = !isFollowing;
-    setIsFollowing(newStatus);
+    // Optimistic UI (Đổi trạng thái ngay lập tức cho mượt)
+    const previousState = isFollowing;
+    setIsFollowing(!isFollowing);
 
     try {
-        if (newStatus) {
-            // Follow
-            await supabase.from('following_artists').insert({
-                user_id: user.id,
-                artist_name: artistName,
-                artist_image: artistImage
-            });
-        } else {
-            // Unfollow
-            await supabase.from('following_artists').delete()
-                .eq('user_id', user.id)
+        if (previousState) {
+            // Đang follow -> Bấm để Unfollow
+            const { error } = await supabase
+                .from('following_artists')
+                .delete()
+                .eq('user_id', session.user.id)
                 .eq('artist_name', artistName);
+            
+            if (error) throw error;
+            if (onFollowChange) onFollowChange(false); // Callback cập nhật UI cha
+        } else {
+            // Chưa follow -> Bấm để Follow
+            const { error } = await supabase
+                .from('following_artists')
+                .insert({
+                    user_id: session.user.id,
+                    artist_name: artistName,
+                    artist_image: artistImage
+                });
+            
+            if (error) throw error;
+            if (onFollowChange) onFollowChange(true);
         }
+        router.refresh();
     } catch (error) {
-        console.error(error);
-        // Nếu lỗi thì revert lại
-        setIsFollowing(!newStatus);
+        console.error("Lỗi follow:", error);
+        setIsFollowing(previousState); // Hoàn tác nếu lỗi
+        alert("Có lỗi xảy ra, vui lòng thử lại.");
     }
   };
 
-  if (loading) return <div className="w-8 h-8" />; // Placeholder khi đang load
+  if (loading) return <div className="w-20 h-8 bg-neutral-800/50 rounded-full animate-pulse" />;
 
   return (
     <button
       onClick={handleFollow}
       className={`
-        flex items-center gap-2 px-4 py-2 rounded-full font-mono text-xs font-bold transition-all duration-300 z-20
+        flex items-center gap-2 px-4 py-1.5 rounded-full font-mono text-xs font-bold transition-all duration-300 z-20
         ${isFollowing 
-            ? 'bg-transparent border border-emerald-500 text-emerald-500 hover:bg-red-500/10 hover:border-red-500 hover:text-red-500' 
-            : 'bg-emerald-500 text-black hover:scale-105 shadow-[0_0_15px_rgba(16,185,129,0.4)]'
+            ? 'bg-transparent border border-emerald-500 text-emerald-500 hover:bg-red-500/10 hover:border-red-500 hover:text-red-500 group' 
+            : 'bg-emerald-500 text-black border border-emerald-500 hover:scale-105 shadow-[0_0_15px_rgba(16,185,129,0.4)]'
         }
       `}
     >
       {isFollowing ? (
         <>
             <Check size={14} className="group-hover:hidden" /> 
-            <span>FOLLOWING</span>
+            <span className="group-hover:hidden">FOLLOWING</span>
+            <span className="hidden group-hover:inline">UNFOLLOW</span>
         </>
       ) : (
         <>
